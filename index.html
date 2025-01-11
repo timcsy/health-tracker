@@ -36,7 +36,6 @@
           weight: '',
           date: '',
           weightRecords: [],
-          paginatedRecords: [],
           itemsPerPage: 5,
           currentPage: 1,
           message: '',
@@ -82,14 +81,6 @@
           })
         }
 
-          const now = state.date || new Date().toISOString().split('T')[0]
-          const record = { date: now, weight: parseFloat(state.weight) }
-          user.get('weights').set(record, ack => {
-            state.message = ack.err ? `Error: ${ack.err}` : 'Weight record saved!'
-            if (!ack.err) loadWeights()
-          })
-        }
-
         const loadWeights = () => {
           state.weightRecords = []
           user.get('weights').map().once((data, key) => {
@@ -103,11 +94,6 @@
         const updateWeight = (key, newDate, newWeight) => {
           const formattedDate = new Date(newDate).toISOString().split('T')[0] // Ensure date format
           const record = { date: formattedDate, weight: parseFloat(newWeight) }
-          user.get('weights').get(key).put(record, ack => {
-            state.message = ack.err ? `Error: ${ack.err}` : 'Weight record updated!'
-            if (!ack.err) loadWeights()
-          })
-        }
           user.get('weights').get(key).put(record, ack => {
             state.message = ack.err ? `Error: ${ack.err}` : 'Weight record updated!'
             if (!ack.err) loadWeights()
