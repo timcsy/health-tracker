@@ -82,17 +82,35 @@
           })
         }
 
+          const now = state.date || new Date().toISOString().split('T')[0]
+          const record = { date: now, weight: parseFloat(state.weight) }
+          user.get('weights').set(record, ack => {
+            state.message = ack.err ? `Error: ${ack.err}` : 'Weight record saved!'
+            if (!ack.err) loadWeights()
+          })
+        }
+
         const loadWeights = () => {
           state.weightRecords = []
           user.get('weights').map().once((data, key) => {
             if (data && data.date && data.weight) {
-              state.weightRecords.push({ date: data.date, weight: data.weight })
+              const formattedDate = new Date(data.date).toISOString().split('T')[0] // Ensure correct date format
+              state.weightRecords.push({ key, date: formattedDate, weight: data.weight })
+            }
+          })
+        })
             }
           })
         }
 
         const updateWeight = (key, newDate, newWeight) => {
-          const record = { date: newDate, weight: parseFloat(newWeight) }
+          const formattedDate = new Date(newDate).toISOString().split('T')[0] // Ensure date format
+          const record = { date: formattedDate, weight: parseFloat(newWeight) }
+          user.get('weights').get(key).put(record, ack => {
+            state.message = ack.err ? `Error: ${ack.err}` : 'Weight record updated!'
+            if (!ack.err) loadWeights()
+          })
+        }
           user.get('weights').get(key).put(record, ack => {
             state.message = ack.err ? `Error: ${ack.err}` : 'Weight record updated!'
             if (!ack.err) loadWeights()
@@ -236,13 +254,13 @@
                     </v-row>
                   </template>
                   <template v-slot:item.date="{ item }">
-                    <v-text-field v-model="item.date" type="date" @change="updateWeight(item.date, item.date, item.weight)"></v-text-field>
+                    <v-text-field v-model="item.date" type="date" @change="updateWeight(item.key, item.date, item.weight)"></v-text-field>
                   </template>
                   <template v-slot:item.weight="{ item }">
-                    <v-text-field v-model="item.weight" type="number" @change="updateWeight(item.date, item.date, item.weight)"></v-text-field>
+                    <v-text-field v-model="item.weight" type="number" @change="updateWeight(item.key, item.date, item.weight)"></v-text-field>
                   </template>
                   <template v-slot:item.action="{ item }">
-                    <v-btn color="error" @click="deleteWeight(item.date)">Delete</v-btn>
+                    <v-btn color="error" @click="deleteWeight(item.key)">Delete</v-btn>
                   </template>
                 </v-data-table>
               </div>
