@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Health Tracker</title>
+  <title>GunDB Weight Tracker</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vuetify@3.7.6/dist/vuetify.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font/css/materialdesignicons.css">
   <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
@@ -11,6 +11,7 @@
   <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/gun/sea.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
 </head>
 <body>
   <div id="app"></div>
@@ -81,7 +82,7 @@
         const drawChart = () => {
           const ctx = document.getElementById('weightChart').getContext('2d')
           const sortedRecords = state.weightRecords.sort((a, b) => new Date(a.date) - new Date(b.date))
-          const labels = sortedRecords.map(record => new Date(record.date).toLocaleString())
+          const labels = sortedRecords.map(record => new Date(record.date))
           const data = sortedRecords.map(record => record.weight)
 
           new Chart(ctx, {
@@ -106,7 +107,7 @@
                 x: {
                   type: 'time',
                   time: {
-                    unit: 'minute'
+                    unit: 'day'
                   }
                 },
                 y: {
