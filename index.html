@@ -40,6 +40,7 @@
           itemsPerPage: 5,
           currentPage: 1,
           message: '',
+          chartInstance: null, // For managing Chart.js instance
         })
 
         const totalPages = computed(() => {
@@ -119,8 +120,16 @@
         }
 
         const deleteSelected = () => {
+          if (state.selectedRecords.length === 0) {
+            state.message = 'No records selected for deletion.'
+            return
+          }
           state.selectedRecords.forEach(key => {
-            user.get('weights').get(key).put(null)
+            user.get('weights').get(key).put(null, ack => {
+              if (ack.err) {
+                state.message = `Error deleting record: ${ack.err}`
+              }
+            })
           })
           state.message = 'Selected records deleted!'
           loadWeights()
