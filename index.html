@@ -74,7 +74,7 @@
             return
           }
 
-          const now = state.date || new Date().toISOString()
+          const now = state.date || new Date().toISOString().split('T')[0]
           const record = { date: now, weight: parseFloat(state.weight) }
           user.get('weights').set(record, ack => {
             state.message = ack.err ? `Error: ${ack.err}` : 'Weight record saved!'
