@@ -86,7 +86,7 @@
           state.weightRecords = []
           user.get('weights').map().once((data, key) => {
             if (data && data.date && data.weight) {
-              state.weightRecords.push({ key, date: data.date, weight: data.weight })
+              state.weightRecords.push({ date: data.date, weight: data.weight })
             }
           })
         }
