@@ -10,8 +10,6 @@
   <script src="https://cdn.jsdelivr.net/npm/vuetify@3.7.6/dist/vuetify.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/gun/sea.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
 </head>
 <body>
   <div id="app"></div>
@@ -36,11 +34,10 @@
           weight: '',
           date: '',
           weightRecords: [],
-          selectedRecords: [],
+          selectedRecords: [], // Track selected records
           itemsPerPage: 5,
           currentPage: 1,
           message: '',
-          chartInstance: null, // For managing Chart.js instance
         })
 
         const totalPages = computed(() => {
@@ -65,7 +62,6 @@
             if (!ack.err) {
               state.page = 'tracker'
               loadWeights()
-              drawChart()
             }
           })
         }
@@ -80,10 +76,7 @@
           const record = { date: now, weight: parseFloat(state.weight) }
           user.get('weights').set(record, ack => {
             state.message = ack.err ? `Error: ${ack.err}` : 'Weight record saved!'
-            if (!ack.err) {
-              loadWeights()
-              drawChart()
-            }
+            if (!ack.err) loadWeights()
           })
         }
 
@@ -102,20 +95,14 @@
           const record = { date: formattedDate, weight: parseFloat(newWeight) }
           user.get('weights').get(key).put(record, ack => {
             state.message = ack.err ? `Error: ${ack.err}` : 'Weight record updated!'
-            if (!ack.err) {
-              loadWeights()
-              drawChart()
-            }
+            if (!ack.err) loadWeights()
           })
         }
 
         const deleteWeight = (key) => {
           user.get('weights').get(key).put(null, ack => {
             state.message = ack.err ? `Error: ${ack.err}` : 'Weight record deleted!'
-            if (!ack.err) {
-              loadWeights()
-              drawChart()
-            }
+            if (!ack.err) loadWeights()
           })
         }
 
@@ -133,49 +120,7 @@
           })
           state.message = 'Selected records deleted!'
           loadWeights()
-          drawChart()
           state.selectedRecords = []
-        }
-
-        const drawChart = () => {
-          const ctx = document.getElementById('weightChart').getContext('2d')
-          const sortedRecords = [...state.weightRecords].sort((a, b) => new Date(a.date) - new Date(b.date))
-          const labels = sortedRecords.map(record => new Date(record.date).toLocaleDateString())
-          const data = sortedRecords.map(record => record.weight)
-
-          if (state.chartInstance) state.chartInstance.destroy()
-
-          state.chartInstance = new Chart(ctx, {
-            type: 'line',
-            data: {
-              labels,
-              datasets: [{
-                label: 'Weight Over Time',
-                data,
-                borderColor: 'blue',
-                fill: false
-              }]
-            },
-            options: {
-              responsive: true,
-              plugins: {
-                legend: {
-                  display: true
-                }
-              },
-              scales: {
-                x: {
-                  type: 'time',
-                  time: {
-                    unit: 'day'
-                  }
-                },
-                y: {
-                  beginAtZero: true
-                }
-              }
-            }
-          })
         }
 
         const logout = () => {
@@ -199,14 +144,12 @@
                   state.message = `Welcome back, ${state.username}!`
                   state.page = 'tracker'
                   loadWeights()
-                  drawChart()
                 } else {
                   user.get('alias').put('Guest')
                   state.username = 'Guest'
                   state.message = 'Welcome back, Guest!'
                   state.page = 'tracker'
                   loadWeights()
-                  drawChart()
                 }
               })
             }
@@ -223,7 +166,6 @@
           updateWeight,
           deleteWeight,
           deleteSelected,
-          drawChart,
           logout,
         }
       },
@@ -288,9 +230,6 @@
                     <v-btn color="error" @click="deleteWeight(item.key)">Delete</v-btn>
                   </template>
                 </v-data-table>
-
-                <h3>Weight Trend</h3>
-                <canvas id="weightChart" width="400" height="200"></canvas>
               </div>
             </v-container>
           </v-main>
