@@ -236,13 +236,13 @@
                     </v-row>
                   </template>
                   <template v-slot:item.date="{ item }">
-                    <v-text-field v-model="item.date" type="date" @change="updateWeight(item.key, item.date, item.weight)"></v-text-field>
+                    <v-text-field v-model="item.date" type="date" @change="updateWeight(item.date, item.date, item.weight)"></v-text-field>
                   </template>
                   <template v-slot:item.weight="{ item }">
-                    <v-text-field v-model="item.weight" type="number" @change="updateWeight(item.key, item.date, item.weight)"></v-text-field>
+                    <v-text-field v-model="item.weight" type="number" @change="updateWeight(item.date, item.date, item.weight)"></v-text-field>
                   </template>
                   <template v-slot:item.action="{ item }">
-                    <v-btn color="error" @click="deleteWeight(item.key)">Delete</v-btn>
+                    <v-btn color="error" @click="deleteWeight(item.date)">Delete</v-btn>
                   </template>
                 </v-data-table>
               </div>
