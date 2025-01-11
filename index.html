@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Health Tracker</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vuetify@3.7.6/dist/vuetify.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font/css/materialdesignicons.css">
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vuetify@3.7.6/dist/vuetify.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gun/sea.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <div id="app"></div>
+
+  <script>
+    const { createApp, reactive, onMounted } = Vue
+    const { createVuetify } = Vuetify
+
+    // Initialize GunDB
+    const gun = Gun({
+      peers: ['https://gun-manhattan.herokuapp.com/gun'],
+      localStorage: false
+    })
+    const user = gun.user().recall({ sessionStorage: true })
+
+    const App = {
+      setup() {
+        const state = reactive({
+          page: 'login',
+          username: '',
+          password: '',
+          weight: '',
+          date: '',
+          weightRecords: [],
+          message: '',
+        })
+
+        const register = () => {
+          user.create(state.username, state.password, ack => {
+            state.message = ack.err ? `Error: ${ack.err}` : 'Registration successful! Please log in.'
+            if (!ack.err) state.page = 'login'
+          })
+        }
+
+        const login = () => {
+          user.auth(state.username, state.password, ack => {
+            state.message = ack.err ? `Error: ${ack.err}` : `Welcome, ${state.username}!`
+            if (!ack.err) {
+              state.page = 'tracker'
+              loadWeights()
+            }
+          })
+        }
+
+        const saveWeight = () => {
+          if (!state.weight) {
+            state.message = 'Please provide your weight.'
+            return
+          }
+
+          const now = new Date().toISOString()
+          const record = { date: now, weight: parseFloat(state.weight) }
+          user.get('weights').set(record, ack => {
+            state.message = ack.err ? `Error: ${ack.err}` : 'Weight record saved!'
+            if (!ack.err) loadWeights()
+          })
+        }
+
+        const loadWeights = () => {
+          state.weightRecords = []
+          user.get('weights').map().once((data, key) => {
+            if (data && data.date && data.weight) {
+              state.weightRecords.push({ date: data.date, weight: data.weight })
+            }
+          })
+        }
+
+        const drawChart = () => {
+          const ctx = document.getElementById('weightChart').getContext('2d')
+          const sortedRecords = state.weightRecords.sort((a, b) => new Date(a.date) - new Date(b.date))
+          const labels = sortedRecords.map(record => new Date(record.date).toLocaleString())
+          const data = sortedRecords.map(record => record.weight)
+
+          new Chart(ctx, {
+            type: 'line',
+            data: {
+              labels,
+              datasets: [{
+                label: 'Weight Over Time',
+                data,
+                borderColor: 'blue',
+                fill: false
+              }]
+            },
+            options: {
+              responsive: true,
+              plugins: {
+                legend: {
+                  display: true
+                }
+              },
+              scales: {
+                x: {
+                  type: 'time',
+                  time: {
+                    unit: 'minute'
+                  }
+                },
+                y: {
+                  beginAtZero: true
+                }
+              }
+            }
+          })
+        }
+
+        const logout = () => {
+          user.leave()
+          state.page = 'login'
+          state.username = ''
+          state.password = ''
+          state.weightRecords = []
+          state.message = 'Logged out!'
+        }
+
+        onMounted(() => {
+          if (user.is) {
+            state.username = user.is.alias
+            state.page = 'tracker'
+            loadWeights()
+          }
+        })
+
+        return {
+          state,
+          register,
+          login,
+          saveWeight,
+          drawChart,
+          logout,
+        }
+      },
+      template: `
+        <v-app>
+          <v-main>
+            <v-container>
+              <v-alert v-if="state.message" type="info" dismissible>{{ state.message }}</v-alert>
+
+              <div v-if="state.page === 'login'">
+                <h2>Login</h2>
+                <v-text-field label="Username" v-model="state.username"></v-text-field>
+                <v-text-field label="Password" v-model="state.password" type="password"></v-text-field>
+                <v-btn color="primary" @click="login">Login</v-btn>
+                <v-btn @click="state.page = 'register'">Register</v-btn>
+              </div>
+
+              <div v-if="state.page === 'register'">
+                <h2>Register</h2>
+                <v-text-field label="Username" v-model="state.username"></v-text-field>
+                <v-text-field label="Password" v-model="state.password" type="password"></v-text-field>
+                <v-btn color="primary" @click="register">Register</v-btn>
+                <v-btn @click="state.page = 'login'">Back to Login</v-btn>
+              </div>
+
+              <div v-if="state.page === 'tracker'">
+                <h2>Welcome, {{ state.username }}</h2>
+
+                <v-text-field label="Weight (kg)" v-model="state.weight" type="number"></v-text-field>
+                <v-btn color="primary" @click="saveWeight">Save Weight</v-btn>
+                <v-btn color="secondary" @click="logout">Logout</v-btn>
+
+                <canvas id="weightChart" width="400" height="200"></canvas>
+                <v-btn color="info" @click="drawChart">Show Chart</v-btn>
+              </div>
+            </v-container>
+          </v-main>
+        </v-app>
+      `
+    }
+
+    const vuetify = createVuetify()
+    createApp(App).use(vuetify).mount('#app')
+  </script>
+</body>
+</html>
