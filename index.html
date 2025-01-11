@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GunDB Weight Tracker</title>
+  <title>Health Tracker</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vuetify@3.7.6/dist/vuetify.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font/css/materialdesignicons.css">
   <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
@@ -17,7 +17,7 @@
   <div id="app"></div>
 
   <script>
-    const { createApp, reactive, onMounted } = Vue
+    const { createApp, reactive, onMounted, computed } = Vue
     const { createVuetify } = Vuetify
 
     // Initialize GunDB
@@ -36,7 +36,19 @@
           weight: '',
           date: '',
           weightRecords: [],
+          paginatedRecords: [],
+          itemsPerPage: 5,
+          currentPage: 1,
           message: '',
+        })
+
+        const totalPages = computed(() => {
+          return Math.ceil(state.weightRecords.length / state.itemsPerPage)
+        })
+
+        const currentRecords = computed(() => {
+          const start = (state.currentPage - 1) * state.itemsPerPage
+          return state.weightRecords.slice(start, start + state.itemsPerPage)
         })
 
         const register = () => {
@@ -62,7 +74,7 @@
             return
           }
 
-          const now = new Date().toISOString()
+          const now = state.date || new Date().toISOString()
           const record = { date: now, weight: parseFloat(state.weight) }
           user.get('weights').set(record, ack => {
             state.message = ack.err ? `Error: ${ack.err}` : 'Weight record saved!'
@@ -74,15 +86,30 @@
           state.weightRecords = []
           user.get('weights').map().once((data, key) => {
             if (data && data.date && data.weight) {
-              state.weightRecords.push({ date: data.date, weight: data.weight })
+              state.weightRecords.push({ key, date: data.date, weight: data.weight })
             }
+          })
+        }
+
+        const updateWeight = (key, newDate, newWeight) => {
+          const record = { date: newDate, weight: parseFloat(newWeight) }
+          user.get('weights').get(key).put(record, ack => {
+            state.message = ack.err ? `Error: ${ack.err}` : 'Weight record updated!'
+            if (!ack.err) loadWeights()
+          })
+        }
+
+        const deleteWeight = (key) => {
+          user.get('weights').get(key).put(null, ack => {
+            state.message = ack.err ? `Error: ${ack.err}` : 'Weight record deleted!'
+            if (!ack.err) loadWeights()
           })
         }
 
         const drawChart = () => {
           const ctx = document.getElementById('weightChart').getContext('2d')
           const sortedRecords = state.weightRecords.sort((a, b) => new Date(a.date) - new Date(b.date))
-          const labels = sortedRecords.map(record => new Date(record.date))
+          const labels = sortedRecords.map(record => new Date(record.date).toLocaleDateString())
           const data = sortedRecords.map(record => record.weight)
 
           new Chart(ctx, {
@@ -128,18 +155,38 @@
         }
 
         onMounted(() => {
-          if (user.is) {
-            state.username = user.is.alias
-            state.page = 'tracker'
-            loadWeights()
-          }
+          user.recall({ sessionStorage: true }, ack => {
+            if (ack.err) {
+              state.message = 'Session restore failed. Please log in again.'
+            } else if (user.is && user.is.alias) {
+              user.get('alias').once(alias => {
+                if (alias && typeof alias === 'string') {
+                  state.username = alias
+                  state.message = `Welcome back, ${state.username}!`
+                  state.page = 'tracker'
+                  loadWeights()
+                } else {
+                  user.get('alias').put('Guest')
+                  state.username = 'Guest'
+                  state.message = 'Welcome back, Guest!'
+                  state.page = 'tracker'
+                  loadWeights()
+                }
+              })
+            }
+          })
+        })
         })
 
         return {
           state,
+          totalPages,
+          currentRecords,
           register,
           login,
           saveWeight,
+          updateWeight,
+          deleteWeight,
           drawChart,
           logout,
         }
@@ -170,11 +217,35 @@
                 <h2>Welcome, {{ state.username }}</h2>
 
                 <v-text-field label="Weight (kg)" v-model="state.weight" type="number"></v-text-field>
+                <v-text-field label="Date" v-model="state.date" type="date"></v-text-field>
                 <v-btn color="primary" @click="saveWeight">Save Weight</v-btn>
                 <v-btn color="secondary" @click="logout">Logout</v-btn>
 
                 <canvas id="weightChart" width="400" height="200"></canvas>
                 <v-btn color="info" @click="drawChart">Show Chart</v-btn>
+
+                <h3>Weight Records</h3>
+                <v-data-table :items="currentRecords" :items-per-page="state.itemsPerPage" hide-default-footer>
+                  <template v-slot:top>
+                    <v-row align="center">
+                      <v-col cols="6">
+                        <v-select :items="[5, 10, 20]" v-model="state.itemsPerPage" label="Items per page"></v-select>
+                      </v-col>
+                      <v-col cols="6" class="text-end">
+                        <v-pagination v-model="state.currentPage" :length="totalPages"></v-pagination>
+                      </v-col>
+                    </v-row>
+                  </template>
+                  <template v-slot:item.date="{ item }">
+                    <v-text-field v-model="item.date" type="date" @change="updateWeight(item.key, item.date, item.weight)"></v-text-field>
+                  </template>
+                  <template v-slot:item.weight="{ item }">
+                    <v-text-field v-model="item.weight" type="number" @change="updateWeight(item.key, item.date, item.weight)"></v-text-field>
+                  </template>
+                  <template v-slot:item.action="{ item }">
+                    <v-btn color="error" @click="deleteWeight(item.key)">Delete</v-btn>
+                  </template>
+                </v-data-table>
               </div>
             </v-container>
           </v-main>
